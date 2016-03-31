@@ -9,6 +9,18 @@
 (setq power-shake-states '(up down left right))
 (setq power-shake-start-position nil)
 
+(defun from-frame-position (frame-position)
+  "Convert a frame position to a pixel position"
+  (if (integerp frame-position)
+      frame-position
+    (car (cdr frame-position))))
+
+(defun to-frame-position (px-position)
+  "Convert a pixel position to a frame position"
+  (if (< px-position 0)
+      (list '+ px-position)
+    px-position))
+
 (defun power-shake-end ()
   (when power-shake-animation-timer
     (cancel-timer power-shake-animation-timer)
@@ -17,42 +29,37 @@
     (cancel-timer power-shake-timeout-timer)
     (setq power-shake-timeout-timer nil))
   (when power-shake-start-position
-    (set-frame-parameter (selected-frame) 'top (car power-shake-start-position))
-    (set-frame-parameter (selected-frame) 'left (cdr power-shake-start-position))
+    (set-frame-parameter nil 'top (car power-shake-start-position))
+    (set-frame-parameter nil 'left (cdr power-shake-start-position))
     (setq power-shake-start-position nil)))
 
 (defun power-shake-running ()
   (or power-shake-animation-timer power-shake-timeout-timer))
 
 (defun power-shake-once (intensity)
-  (let* ((frame (selected-frame))
-         (current-top (frame-parameter frame 'top))
-         (current-left (frame-parameter frame 'left)))
+  (let ((current-top (from-frame-position (frame-parameter nil 'top)))
+        (current-left (from-frame-position (frame-parameter nil 'left))))
     (if (eq power-shake-current-state nil)
         (setq power-shake-current-state power-shake-states)
       (setq power-shake-current-state (-rotate 1 power-shake-current-state)))
     (cond ((eq (car power-shake-current-state) 'up)
-           (let ((new-top (+ current-top intensity)))
-             (set-frame-parameter frame 'top new-top)))
+           (set-frame-parameter nil 'top (to-frame-position (+ current-top intensity))))
           ((eq (car power-shake-current-state) 'down)
-           (let ((new-top (- current-top intensity)))
-             (set-frame-parameter frame 'top new-top)))
+           (set-frame-parameter nil 'top (to-frame-position (- current-top intensity))))
           ((eq (car power-shake-current-state) 'left)
-           (let ((new-left (+ current-left intensity)))
-             (set-frame-parameter frame 'left new-left)))
+           (set-frame-parameter nil 'left (to-frame-position (+ current-left intensity))))
           ((eq (car power-shake-current-state) 'right)
-           (let ((new-left (- current-left intensity)))
-             (set-frame-parameter frame 'left new-left)))))
+           (set-frame-parameter nil 'left (to-frame-position (- current-left intensity))))))
   power-shake-current-state)
 
 (defun power-shake (&optional duration intensity)
-  (let ((intensity (if intensity intensity power-shake-default-intensity))
-        (duration (if duration duration power-shake-default-duration)))
+  (let ((intensity (or intensity power-shake-default-intensity))
+        (duration (or duration power-shake-default-duration)))
     (when (power-shake-running)
       (power-shake-end))
     (setq power-shake-start-position
-          (cons (frame-parameter (selected-frame) 'top)
-                (frame-parameter (selected-frame) 'left)))
+          (cons (frame-parameter nil 'top)
+                (frame-parameter nil 'left)))
     (setq power-shake-animation-timer (run-at-time "0 sec"
                                                    0.04
                                                    'power-shake-once
